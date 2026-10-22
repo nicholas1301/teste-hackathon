@@ -9,6 +9,7 @@
       :root { color-scheme: dark; --accent: #7fd6ff; --text: #eef2ff; --muted: #9aa6c7; --line: rgba(238,242,255,.14); }
       * { box-sizing: border-box; }
       html, body { height: 100%; margin: 0; overflow: hidden; background: #02040b; color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      html.embedded .bar { display: none; }
       #scene { position: fixed; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; display: block; }
       #scene.dragging { cursor: grabbing; }
       .bar { position: fixed; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; pointer-events: none; }
@@ -27,6 +28,9 @@
       #info strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 2px; }
       @media (max-width: 640px) { .panel ul { display: none; } #info { bottom: auto; top: 64px; right: 20px; } }
     </style>
+    <script>
+      if (new URLSearchParams(window.location.search).has("embed")) document.documentElement.classList.add("embedded");
+    </script>
   </head>
   <body>
     <canvas id="scene" aria-label="Visualizador 3D do Sistema Solar"></canvas>
@@ -58,14 +62,14 @@
 
         // r: raio da órbita (escala comprimida), s: tamanho, p: período em anos
         var bodies = [
-          { n: "Mercúrio", r: 70,  s: 3.2, p: 0.24, c: "#b5a99a", d: "Órbita: 88 dias" },
-          { n: "Vênus",    r: 105, s: 5.6, p: 0.62, c: "#e8c98a", d: "Órbita: 225 dias" },
-          { n: "Terra",    r: 145, s: 6,   p: 1,    c: "#4f9dff", d: "Órbita: 365 dias" },
-          { n: "Marte",    r: 185, s: 4.3, p: 1.88, c: "#e0633f", d: "Órbita: 687 dias" },
-          { n: "Júpiter",  r: 270, s: 15,  p: 11.9, c: "#d9a877", d: "Órbita: 11,9 anos" },
-          { n: "Saturno",  r: 345, s: 12.5,p: 29.5, c: "#e6d29b", d: "Órbita: 29,5 anos", ring: true },
-          { n: "Urano",    r: 415, s: 8.5, p: 84,   c: "#8fe3e8", d: "Órbita: 84 anos" },
-          { n: "Netuno",   r: 475, s: 8.2, p: 165,  c: "#4466e8", d: "Órbita: 165 anos" }
+          { n: "Mercúrio", r: 70,  e: 0.206, s: 3.2, p: 0.24, c: "#b5a99a", d: "Órbita: 88 dias" },
+          { n: "Vênus",    r: 105, e: 0.007, s: 5.6, p: 0.62, c: "#e8c98a", d: "Órbita: 225 dias" },
+          { n: "Terra",    r: 145, e: 0.017, s: 6,   p: 1,    c: "#4f9dff", d: "Órbita: 365 dias" },
+          { n: "Marte",    r: 185, e: 0.093, s: 4.3, p: 1.88, c: "#e0633f", d: "Órbita: 687 dias" },
+          { n: "Júpiter",  r: 270, e: 0.049, s: 15,  p: 11.9, c: "#d9a877", d: "Órbita: 11,9 anos" },
+          { n: "Saturno",  r: 345, e: 0.057, s: 12.5,p: 29.5, c: "#e6d29b", d: "Órbita: 29,5 anos", ring: true },
+          { n: "Urano",    r: 415, e: 0.046, s: 8.5, p: 84,   c: "#8fe3e8", d: "Órbita: 84 anos" },
+          { n: "Netuno",   r: 475, e: 0.010, s: 8.2, p: 165,  c: "#4466e8", d: "Órbita: 165 anos" }
         ];
         var sun = { n: "Sol", s: 30, c: "#ffc861", d: "Estrela central", sun: true, x: 0, y: 0, z: 0 };
         bodies.forEach(function (b, i) { b.a = i * 1.7; b.x = b.y = b.z = 0; });
@@ -114,11 +118,11 @@
           ctx.globalAlpha = 1;
         }
 
-        function drawOrbit(r, color) {
+        function drawOrbit(r, e, color) {
           ctx.beginPath();
           var started = false;
           for (var i = 0; i <= 120; i++) {
-            var a = i / 120 * TAU, p = project(Math.cos(a) * r, 0, Math.sin(a) * r);
+            var a = i / 120 * TAU, p = project((Math.cos(a) - e) * r, 0, Math.sin(a) * r * Math.sqrt(1 - e * e));
             if (!p) { started = false; continue; }
             if (started) ctx.lineTo(p.x, p.y); else { ctx.moveTo(p.x, p.y); started = true; }
           }
@@ -130,7 +134,7 @@
           var inner = b.s * 1.5, outer = b.s * 2.3, started = false;
           for (var i = 0; i <= 48; i++) {
             var a = i / 48 * TAU, q = project(b.x + Math.cos(a) * outer, b.y, b.z + Math.sin(a) * outer);
-            if (!q) continue;
+            if (!q) { started = false; continue; }
             var inFront = Math.cos(a) * outer * sy + Math.sin(a) * outer * cy;
             if ((inFront > 0) !== front) { started = false; continue; }
             if (started) ctx.lineTo(q.x, q.y); else { ctx.moveTo(q.x, q.y); started = true; }
@@ -178,7 +182,7 @@
           cam.pitch += (tgt.pitch - cam.pitch) * ease;
           cam.dist += (tgt.dist - cam.dist) * ease;
           if (!paused) bodies.forEach(function (b) { b.a += dt * TAU / (b.p * 8 + 4) * (1 / Math.sqrt(b.p + .3)) * 0.6; });
-          bodies.forEach(function (b) { b.x = Math.cos(b.a) * b.r; b.z = Math.sin(b.a) * b.r; });
+          bodies.forEach(function (b) { b.x = (Math.cos(b.a) - b.e) * b.r; b.z = Math.sin(b.a) * b.r * Math.sqrt(1 - b.e * b.e); });
           var ft = focus || { x: 0, y: 0, z: 0 };
           fx += (ft.x - fx) * ease; fy += (ft.y - fy) * ease; fz += (ft.z - fz) * ease;
 
@@ -187,7 +191,7 @@
           drawStars();
           if (showOrbits) {
             ctx.setLineDash([]);
-            bodies.forEach(function (b) { drawOrbit(b.r, b === focus ? "rgba(127,214,255,.45)" : "rgba(238,242,255,.14)"); });
+            bodies.forEach(function (b) { drawOrbit(b.r, b.e, b === focus ? "rgba(127,214,255,.45)" : "rgba(238,242,255,.14)"); });
           }
           var all = bodies.concat([sun]);
           all.forEach(function (b) { b.p2 = project(b.x, b.y, b.z); });
