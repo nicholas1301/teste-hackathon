@@ -52,7 +52,7 @@
         <button id="reset" type="button">Redefinir</button>
       </div>
     </div>
-    <div id="info"><strong>Sistema Solar</strong>Distâncias e tamanhos fora de escala</div>
+    <div id="info"><strong>Sistema Solar</strong>Excentricidades baixas ampliadas para visualização</div>
     <script>
       (function () {
         var canvas = document.getElementById("scene");
@@ -72,7 +72,7 @@
           { n: "Netuno",   r: 475, e: 0.010, s: 8.2, p: 165,  c: "#4466e8", d: "Órbita: 165 anos" }
         ];
         var sun = { n: "Sol", s: 30, c: "#ffc861", d: "Estrela central", sun: true, x: 0, y: 0, z: 0 };
-        bodies.forEach(function (b, i) { b.a = i * 1.7; b.x = b.y = b.z = 0; });
+        bodies.forEach(function (b, i) { b.visualE = Math.max(b.e, 0.04); b.a = i * 1.7; b.x = b.y = b.z = 0; });
 
         var HOME = { yaw: 0.6, pitch: 0.45, dist: 900 };
         var cam = { yaw: HOME.yaw, pitch: HOME.pitch, dist: HOME.dist };
@@ -182,7 +182,7 @@
           cam.pitch += (tgt.pitch - cam.pitch) * ease;
           cam.dist += (tgt.dist - cam.dist) * ease;
           if (!paused) bodies.forEach(function (b) { b.a += dt * TAU / (b.p * 8 + 4) * (1 / Math.sqrt(b.p + .3)) * 0.6; });
-          bodies.forEach(function (b) { b.x = (Math.cos(b.a) - b.e) * b.r; b.z = Math.sin(b.a) * b.r * Math.sqrt(1 - b.e * b.e); });
+          bodies.forEach(function (b) { b.x = (Math.cos(b.a) - b.visualE) * b.r; b.z = Math.sin(b.a) * b.r * Math.sqrt(1 - b.visualE * b.visualE); });
           var ft = focus || { x: 0, y: 0, z: 0 };
           fx += (ft.x - fx) * ease; fy += (ft.y - fy) * ease; fz += (ft.z - fz) * ease;
 
@@ -191,7 +191,7 @@
           drawStars();
           if (showOrbits) {
             ctx.setLineDash([]);
-            bodies.forEach(function (b) { drawOrbit(b.r, b.e, b === focus ? "rgba(127,214,255,.45)" : "rgba(238,242,255,.14)"); });
+            bodies.forEach(function (b) { drawOrbit(b.r, b.visualE, b === focus ? "rgba(127,214,255,.45)" : "rgba(238,242,255,.14)"); });
           }
           var all = bodies.concat([sun]);
           all.forEach(function (b) { b.p2 = project(b.x, b.y, b.z); });
@@ -210,7 +210,7 @@
         }
 
         function setInfo(b) {
-          info.innerHTML = b ? "<strong>" + b.n + "</strong>" + b.d : "<strong>Sistema Solar</strong>Distâncias e tamanhos fora de escala";
+          info.innerHTML = b ? "<strong>" + b.n + "</strong>" + b.d : "<strong>Sistema Solar</strong>Excentricidades baixas ampliadas para visualização";
         }
 
         function clampTgt() {
