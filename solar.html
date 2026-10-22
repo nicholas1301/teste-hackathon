@@ -130,17 +130,23 @@
         }
 
         function drawRing(b, p, front) {
-          ctx.beginPath();
-          var inner = b.s * 1.5, outer = b.s * 2.3, started = false;
-          for (var i = 0; i <= 48; i++) {
-            var a = i / 48 * TAU, q = project(b.x + Math.cos(a) * outer, b.y, b.z + Math.sin(a) * outer);
-            if (!q) { started = false; continue; }
-            var inFront = Math.cos(a) * outer * sy + Math.sin(a) * outer * cy;
-            if ((inFront > 0) !== front) { started = false; continue; }
-            if (started) ctx.lineTo(q.x, q.y); else { ctx.moveTo(q.x, q.y); started = true; }
+          var bands = [[1.45,1.65,"rgba(200,180,140,.35)"],[1.65,1.95,"rgba(238,222,176,.85)"],[1.95,2.0,"rgba(20,24,40,.0)"],[2.0,2.3,"rgba(215,194,146,.7)"]];
+          var N = 96;
+          for (var k = 0; k < bands.length; k++) {
+            var ri = b.s * bands[k][0], ro = b.s * bands[k][1];
+            ctx.fillStyle = bands[k][2];
+            for (var i = 0; i < N; i++) {
+              var a0 = i / N * TAU, a1 = (i + 1.5) / N * TAU, am = (a0 + a1) / 2;
+              var depth = Math.cos(am) * sy + Math.sin(am) * cy;
+              if ((depth > 0) !== front) continue;
+              var q1 = project(b.x + Math.cos(a0) * ro, b.y, b.z + Math.sin(a0) * ro),
+                  q2 = project(b.x + Math.cos(a1) * ro, b.y, b.z + Math.sin(a1) * ro),
+                  q3 = project(b.x + Math.cos(a1) * ri, b.y, b.z + Math.sin(a1) * ri),
+                  q4 = project(b.x + Math.cos(a0) * ri, b.y, b.z + Math.sin(a0) * ri);
+              if (!q1 || !q2 || !q3 || !q4) continue;
+              ctx.beginPath(); ctx.moveTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y); ctx.lineTo(q3.x, q3.y); ctx.lineTo(q4.x, q4.y); ctx.closePath(); ctx.fill();
+            }
           }
-          ctx.strokeStyle = "rgba(230,210,155,.75)"; ctx.lineWidth = Math.max(1, (outer - inner) * p.k * 0.6);
-          ctx.stroke();
         }
 
         function drawBody(b) {
