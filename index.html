@@ -93,8 +93,6 @@
       .visual {
         position: relative;
         min-height: 390px;
-        display: grid;
-        place-items: center;
         overflow: hidden;
         border: 1px solid var(--line);
         border-radius: 16px;
@@ -103,31 +101,10 @@
           linear-gradient(145deg, #1b1a19, #090a0b 70%);
       }
 
-      .visual::before, .visual::after { position: absolute; border: 1px solid rgba(179, 139, 128, .16); border-radius: 50%; content: ""; }
-      .visual::before { width: 290px; height: 290px; }
-      .visual::after { width: 210px; height: 210px; }
-      .orb { position: relative; z-index: 1; width: 126px; height: 126px; display: grid; place-items: center; border: 1px solid rgba(179,139,128,.3); border-radius: 50%; background: radial-gradient(circle at 35% 32%, #373331, #151414 46%, #030303 76%); box-shadow: 0 0 90px rgba(115,67,59,.2), inset -14px -10px 26px rgba(0,0,0,.8); cursor: pointer; transition: transform .3s ease; padding: 0; }
-      .orb:hover { transform: scale(1.06); }
-      .orb::after { position: absolute; width: 190px; height: 34px; border: 1px solid rgba(179,139,128,.5); border-radius: 50%; content: ""; transform: rotate(-18deg); }
-      .orbit { position: absolute; z-index: 1; width: 290px; height: 290px; border-radius: 50%; animation: spin 14s linear infinite; pointer-events: none; }
-      .orbit-small { width: 210px; height: 210px; animation-duration: 8s; animation-direction: reverse; }
-      .moon { position: absolute; top: -7px; left: 50%; width: 7px; height: 7px; margin-left: -4px; border-radius: 50%; background: #d1c9bd; box-shadow: 0 0 12px rgba(209,201,189,.5); }
-      .orbit-small .moon { width: 5px; height: 5px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-      .rocket { position: absolute; z-index: 3; left: 50%; top: 50%; color: var(--accent); font-size: 18px; pointer-events: none; opacity: 0; }
-      .rocket.go { animation: launch 1.6s ease-in forwards; }
-      .orb.pulse { animation: pulse .6s ease; }
-      .hint { position: absolute; bottom: 14px; z-index: 2; color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
-      @keyframes spin { to { transform: rotate(360deg); } }
-      @keyframes pulse { 50% { transform: scale(1.08); box-shadow: 0 0 120px rgba(115,67,59,.5); } }
-      @keyframes launch { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.7); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(70px, -125px) scale(1.1); } }
-      .float-card { position: absolute; z-index: 2; padding: 13px 15px; border: 1px solid var(--line); border-radius: 10px; background: rgba(14,20,40,.88); box-shadow: 0 15px 45px rgba(0,0,0,.22); backdrop-filter: blur(12px); }
-      .float-card small { display: block; margin-bottom: 4px; color: var(--muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
-      .float-card strong { font-size: 13px; }
-      .card-top { top: 60px; right: 27px; }
-      .card-bottom { bottom: 56px; left: 25px; }
-      .spark { position: absolute; color: var(--accent); font-size: 25px; }
-      .spark-one { top: 116px; left: 64px; }
-      .spark-two { right: 69px; bottom: 118px; font-size: 15px; }
+      .visual iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #02040b; }
+      .viewer-toggle { position: absolute; z-index: 3; top: 12px; right: 12px; padding: 8px 11px; border-color: rgba(238,242,255,.3); background: rgba(14,20,40,.9); font-size: 11px; }
+      .visual.expanded { position: fixed; inset: 12px; z-index: 20; min-height: 0; border-color: var(--line); box-shadow: 0 0 0 100vmax rgba(0,0,0,.82); }
+      body.viewer-expanded { overflow: hidden; }
 
       .section { padding: 83px 0; border-top: 1px solid var(--line); }
       .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 38px; }
@@ -194,7 +171,7 @@
       <nav class="nav-links" aria-label="Navegação principal">
         <a href="#sobre">O incidente</a>
         <a href="#experiencia">Registros</a>
-        <a href="solar.html">Sistema Solar 3D</a>
+        <a href="#visual">Sistema Solar 3D</a>
         <a class="button" href="#participar">Acessar arquivo <span class="arrow" aria-hidden="true">↗</span></a>
       </nav>
     </header>
@@ -217,16 +194,9 @@
           </div>
         </div>
 
-        <div class="visual" aria-label="Anomalia escura cercada por órbitas. Interaja para detectar o sinal">
-          <span class="spark spark-one" aria-hidden="true">✦</span>
-          <span class="spark spark-two" aria-hidden="true">✦</span>
-          <div class="float-card card-top"><small>Origem do sinal</small><strong>Não identificada</strong></div>
-          <div class="orbit" aria-hidden="true"><span class="moon"></span></div>
-          <div class="orbit orbit-small" aria-hidden="true"><span class="moon"></span></div>
-          <button class="orb" id="planet" type="button" aria-label="Detectar sinal"></button>
-          <span class="rocket" id="rocket" aria-hidden="true">∅</span>
-          <div class="float-card card-bottom"><small>Último pacote</small><strong>Recebido amanhã</strong></div>
-          <span class="hint">Interaja com a anomalia</span>
+        <div class="visual" id="visual" aria-label="Visualizador 3D interativo do Sistema Solar">
+          <iframe src="solar.html?embed=1" title="Visualizador 3D interativo do Sistema Solar"></iframe>
+          <button class="viewer-toggle" id="viewer-toggle" type="button" aria-expanded="false">Aumentar visualização</button>
         </div>
       </section>
 
@@ -314,15 +284,13 @@
         resize();
         requestAnimationFrame(draw);
 
-        var planet = document.getElementById("planet");
-        var rocket = document.getElementById("rocket");
-        planet.addEventListener("click", function () {
-          [planet, rocket].forEach(function (el) {
-            el.classList.remove(el === rocket ? "go" : "pulse");
-            void el.offsetWidth;
-          });
-          planet.classList.add("pulse");
-          rocket.classList.add("go");
+        var visual = document.getElementById("visual");
+        var viewerToggle = document.getElementById("viewer-toggle");
+        viewerToggle.addEventListener("click", function () {
+          var expanded = visual.classList.toggle("expanded");
+          document.body.classList.toggle("viewer-expanded", expanded);
+          viewerToggle.setAttribute("aria-expanded", expanded);
+          viewerToggle.textContent = expanded ? "Reduzir visualização" : "Aumentar visualização";
         });
       })();
     </script>
