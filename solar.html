@@ -47,7 +47,8 @@
         <li><b>Duplo clique</b> no vazio para redefinir</li>
       </ul>
       <div class="row">
-        <button id="pause" type="button">⏸ Pausar</button>
+        <button id="pause" type="button" aria-label="Pausar" title="Pausar">⏸</button>
+        <button id="speed" type="button" title="Velocidade">Velocidade: 1x</button>
         <button id="orbits" type="button">Órbitas: ligadas</button>
         <button id="reset" type="button">Redefinir</button>
       </div>
@@ -78,7 +79,7 @@
         var cam = { yaw: HOME.yaw, pitch: HOME.pitch, dist: HOME.dist };
         var tgt = { yaw: HOME.yaw, pitch: HOME.pitch, dist: HOME.dist };
         var focus = null, fx = 0, fy = 0, fz = 0;
-        var paused = false, showOrbits = true, w, h, dpr, F, hover = null;
+        var speed = 1, paused = false, showOrbits = true, w, h, dpr, F, hover = null;
 
         var stars = [];
         for (var i = 0; i < 400; i++) {
@@ -187,7 +188,7 @@
           cam.yaw += (tgt.yaw - cam.yaw) * ease;
           cam.pitch += (tgt.pitch - cam.pitch) * ease;
           cam.dist += (tgt.dist - cam.dist) * ease;
-          if (!paused) bodies.forEach(function (b) { b.a += dt * TAU / (b.p * 8 + 4) * (1 / Math.sqrt(b.p + .3)) * 0.6; });
+          if (!paused) bodies.forEach(function (b) { b.a += dt * speed * TAU / (b.p * 8 + 4) * (1 / Math.sqrt(b.p + .3)) * 0.6; });
           bodies.forEach(function (b) { b.x = (Math.cos(b.a) - b.visualE) * b.r; b.z = Math.sin(b.a) * b.r * Math.sqrt(1 - b.visualE * b.visualE); });
           var ft = focus || { x: 0, y: 0, z: 0 };
           fx += (ft.x - fx) * ease; fy += (ft.y - fy) * ease; fz += (ft.z - fz) * ease;
@@ -267,7 +268,9 @@
         function reset() { focus = null; tgt.yaw = HOME.yaw; tgt.pitch = HOME.pitch; tgt.dist = HOME.dist; setInfo(null); }
         canvas.addEventListener("dblclick", function (e) { if (!pick(e.clientX, e.clientY)) reset(); });
         document.getElementById("reset").onclick = reset;
-        document.getElementById("pause").onclick = function () { paused = !paused; this.textContent = paused ? "▶ Continuar" : "⏸ Pausar"; };
+        document.getElementById("pause").onclick = function () { paused = !paused; this.textContent = paused ? "▶" : "⏸"; this.title = this.ariaLabel = paused ? "Continuar" : "Pausar"; };
+        var speeds = [0.5, 1, 2, 4], si = 1;
+        document.getElementById("speed").onclick = function () { si = (si + 1) % speeds.length; speed = speeds[si]; this.textContent = "Velocidade: " + speed + "x"; };
         document.getElementById("orbits").onclick = function () { showOrbits = !showOrbits; this.textContent = "Órbitas: " + (showOrbits ? "ligadas" : "desligadas"); };
         window.addEventListener("resize", resize);
 

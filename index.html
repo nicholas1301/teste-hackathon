@@ -195,7 +195,7 @@
 
         <div class="visual" id="visual" aria-label="Visualizador 3D interativo do Sistema Solar">
           <iframe src="solar.html?embed=1" title="Visualizador 3D interativo do Sistema Solar"></iframe>
-          <button class="viewer-toggle" id="viewer-toggle" type="button" aria-expanded="false">Aumentar visualização</button>
+          <button class="viewer-toggle" id="viewer-toggle" type="button" aria-expanded="false" aria-label="Entrar em tela cheia" title="Tela cheia">⛶</button>
         </div>
       </section>
 
@@ -289,7 +289,9 @@
           var expanded = visual.classList.toggle("expanded");
           document.body.classList.toggle("viewer-expanded", expanded);
           viewerToggle.setAttribute("aria-expanded", expanded);
-          viewerToggle.textContent = expanded ? "Reduzir visualização" : "Aumentar visualização";
+          viewerToggle.textContent = expanded ? "✕" : "⛶";
+          var l = expanded ? "Sair da tela cheia" : "Entrar em tela cheia";
+          viewerToggle.setAttribute("aria-label", l); viewerToggle.title = l;
         });
       })();
     </script>
