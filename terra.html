@@ -23,6 +23,7 @@
       .row { display: flex; gap: 8px; flex-wrap: wrap; }
       button { font: inherit; min-width: 40px; min-height: 36px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--text); cursor: pointer; }
       button:hover { border-color: var(--accent); }
+      button.active { border-color: var(--accent); color: var(--accent); }
       #info { position: fixed; z-index: 2; top: 64px; left: 20px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(14,20,40,.82); font-size: 12px; color: var(--muted); max-width: calc(100% - 40px); }
       #info strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 2px; }
       html.embedded .bar { display: none; }
@@ -52,8 +53,13 @@
         <button id="spin" type="button">Rotação: ligada</button>
         <button id="reset" type="button">Redefinir</button>
       </div>
+      <div class="row" role="group" aria-label="Resolução">
+        <button type="button" class="res" data-res="low">Baixa</button>
+        <button type="button" class="res" data-res="mid">Média</button>
+        <button type="button" class="res" data-res="high">Alta</button>
+      </div>
     </div>
-    <div id="info"><strong>Planeta Terra</strong>Continentes simplificados</div>
+    <div id="info"><strong>Planeta Terra</strong><span id="resinfo">Continentes simplificados</span></div>
     <script>
       (function () {
         var canvas = document.getElementById("scene");
@@ -78,21 +84,97 @@
           [[166,-46],[174,-41],[178,-38],[172,-35],[168,-44]]
         ];
 
-        var MW = 1024, MH = 512;
-        var mask = document.createElement("canvas");
-        mask.width = MW; mask.height = MH;
-        var mctx = mask.getContext("2d");
-        mctx.fillStyle = "#000"; mctx.fillRect(0, 0, MW, MH);
-        mctx.fillStyle = "#fff";
-        LAND.forEach(function (poly) {
-          mctx.beginPath();
-          poly.forEach(function (p, i) {
-            var x = (p[0] + 180) / 360 * MW, y = (90 - p[1]) / 180 * MH;
-            if (i) mctx.lineTo(x, y); else mctx.moveTo(x, y);
+        // Máscara de terra por resolução. "low" usa os polígonos acima (sem rede);
+        // "mid" e "high" carregam o Natural Earth (world-atlas) sob demanda e rasterizam uma vez.
+        var RES = {
+          low: { w: 1024, label: "Continentes simplificados (baixa resolução)", buf: 520 },
+          mid: { w: 2048, url: "https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json", label: "Natural Earth 1:110m (média resolução)", buf: 640 },
+          high: { w: 4096, url: "https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json", label: "Natural Earth 1:50m (alta resolução)", buf: 800 }
+        };
+        var masks = {}, loading = {};
+        var MW = 1024, MH = 512, land, bufMax = 520, resMode = "low";
+
+        function rasterize(width, drawPolys) {
+          var h2 = width / 2, c = document.createElement("canvas");
+          c.width = width; c.height = h2;
+          var m = c.getContext("2d");
+          m.fillStyle = "#000"; m.fillRect(0, 0, width, h2);
+          m.fillStyle = "#fff";
+          drawPolys(m, function (p) { return [(p[0] + 180) / 360 * width, (90 - p[1]) / 180 * h2]; });
+          var d = m.getImageData(0, 0, width, h2).data, out = new Uint8Array(width * h2);
+          for (var i = 0; i < out.length; i++) out[i] = d[i * 4];
+          return { w: width, h: h2, data: out };
+        }
+
+        masks.low = rasterize(1024, function (m, pt) {
+          LAND.forEach(function (poly) {
+            m.beginPath();
+            poly.forEach(function (p, i) { var q = pt(p); if (i) m.lineTo(q[0], q[1]); else m.moveTo(q[0], q[1]); });
+            m.closePath(); m.fill();
           });
-          mctx.closePath(); mctx.fill();
         });
-        var land = mctx.getImageData(0, 0, MW, MH).data;
+
+        function topoPolygons(topo) {
+          var tr = topo.transform, arcs = topo.arcs.map(function (arc) {
+            var x = 0, y = 0;
+            return arc.map(function (p) {
+              x += p[0]; y += p[1];
+              return tr ? [x * tr.scale[0] + tr.translate[0], y * tr.scale[1] + tr.translate[1]] : [x, y];
+            });
+          });
+          function ring(ids) {
+            var pts = [];
+            ids.forEach(function (id) {
+              var a = id < 0 ? arcs[~id].slice().reverse() : arcs[id];
+              pts = pts.concat(pts.length ? a.slice(1) : a);
+            });
+            return pts;
+          }
+          var polys = [];
+          function geom(g) {
+            if (g.type === "GeometryCollection") g.geometries.forEach(geom);
+            else if (g.type === "Polygon") polys.push(g.arcs.map(ring));
+            else if (g.type === "MultiPolygon") g.arcs.forEach(function (p) { polys.push(p.map(ring)); });
+          }
+          Object.keys(topo.objects).forEach(function (k) { geom(topo.objects[k]); });
+          return polys;
+        }
+
+        function applyMask(mode) {
+          var m = masks[mode];
+          land = m.data; MW = m.w; MH = m.h; bufMax = RES[mode].buf; resMode = mode;
+          document.getElementById("resinfo").textContent = RES[mode].label;
+          Array.prototype.forEach.call(document.querySelectorAll(".res"), function (b) {
+            b.classList.toggle("active", b.dataset.res === mode);
+          });
+        }
+
+        function setRes(mode) {
+          if (masks[mode]) return applyMask(mode);
+          if (loading[mode]) return;
+          var info = document.getElementById("resinfo"), btn = document.querySelector('.res[data-res="' + mode + '"]');
+          loading[mode] = true; btn.disabled = true; info.textContent = "Carregando dados…";
+          fetch(RES[mode].url).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (topo) {
+            var polys = topoPolygons(topo);
+            masks[mode] = rasterize(RES[mode].w, function (m, pt) {
+              polys.forEach(function (rings) {
+                m.beginPath();
+                rings.forEach(function (r) {
+                  r.forEach(function (p, i) { var q = pt(p); if (i) m.lineTo(q[0], q[1]); else m.moveTo(q[0], q[1]); });
+                  m.closePath();
+                });
+                m.fill("evenodd");
+              });
+            });
+            applyMask(mode);
+          }).catch(function () {
+            info.textContent = "Falha ao carregar; mantendo " + RES[resMode].label.toLowerCase();
+          }).then(function () { loading[mode] = false; btn.disabled = false; });
+        }
+        Array.prototype.forEach.call(document.querySelectorAll(".res"), function (b) {
+          b.onclick = function () { setRes(b.dataset.res); };
+        });
+        applyMask("low");
 
         var stars = [];
         for (var i = 0; i < 180; i++) stars.push([Math.random(), Math.random(), Math.random() * 1.2 + .3, Math.random() * .6 + .3]);
@@ -198,7 +280,7 @@
           ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.18, 0, 7); ctx.fill();
 
           // renderiza esfera por pixel em buffer de resolução reduzida
-          var size = Math.max(64, Math.min(Math.ceil(R * 2), 520));
+          var size = Math.max(64, Math.min(Math.ceil(R * 2), bufMax));
           if (buf.width !== size) { buf.width = buf.height = size; }
           var img = bctx.createImageData(size, size), px = img.data;
           var cl = Math.cos(lat * D), sl = Math.sin(lat * D), lo0 = lon * D;
@@ -217,7 +299,7 @@
               var la = Math.asin(y1), lo = Math.atan2(x, z1) + lo0;
               var u = ((lo / D + 180) % 360 + 360) % 360 / 360, v = (90 - la / D) / 180;
               var mi = ((Math.min(MH - 1, (v * MH) | 0)) * MW + ((u * MW) | 0)) * 4;
-              var isLand = land[mi] > 128, rr, gg, bb;
+              var isLand = land[mi >> 2] > 128, rr, gg, bb;
               var polar = Math.abs(la) > 1.25;
               if (isLand) {
                 var t = Math.abs(la) / 1.4;
