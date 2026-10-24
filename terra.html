@@ -256,6 +256,32 @@
           spinBtn.textContent = "Rotação: " + (spinning ? "ligada" : "desligada");
         };
 
+        function biomeColor(latitude, longitude) {
+          if (Math.abs(latitude) > 72 ||
+              (latitude >= 60 && latitude <= 84 && longitude >= -74 && longitude <= -11) ||
+              (latitude >= 27 && latitude <= 36 && longitude >= 85 && longitude <= 95) ||
+              (latitude >= -36 && latitude <= -15 && longitude >= -72 && longitude <= -68)) return 0xe8eeef;
+          if ((latitude >= 15 && latitude <= 33 && longitude >= -17 && longitude <= 35) ||
+              (latitude >= 12 && latitude <= 32 && longitude >= 35 && longitude <= 60) ||
+              (latitude >= -30 && latitude <= -15 && longitude >= 10 && longitude <= 30) ||
+              (latitude >= -30 && latitude <= -15 && longitude >= -80 && longitude <= -68) ||
+              (latitude >= -32 && latitude <= -18 && longitude >= 120 && longitude <= 145) ||
+              (latitude >= 25 && latitude <= 38 && longitude >= -120 && longitude <= -105) ||
+              (latitude >= 37 && latitude <= 48 && longitude >= 85 && longitude <= 115) ||
+              (latitude >= 35 && latitude <= 48 && longitude >= 45 && longitude <= 80)) return 0xc29d63;
+          if ((latitude >= -15 && latitude <= 8 && longitude >= -80 && longitude <= -45) ||
+              (latitude >= -10 && latitude <= 5 && longitude >= 10 && longitude <= 30) ||
+              (latitude >= -10 && latitude <= 20 && longitude >= 95 && longitude <= 150) ||
+              (latitude >= 5 && latitude <= 20 && longitude >= -100 && longitude <= -75)) return 0x276f3b;
+          if (latitude >= -20 && latitude <= 15 && longitude >= 15 && longitude <= 35) return 0x97974c;
+          if ((latitude >= 30 && latitude <= 50 && longitude >= -110 && longitude <= -90) ||
+              (latitude >= -40 && latitude <= -25 && longitude >= -65 && longitude <= -55) ||
+              (latitude >= 40 && latitude <= 55 && longitude >= 35 && longitude <= 80)) return 0x858f4f;
+          if (latitude > 50) return 0x416c4d;
+          if (Math.abs(latitude) < 23) return 0x588545;
+          return 0x65844c;
+        }
+
         function draw() {
           if (!dragging) {
             lon += vLon; lat += vLat; clampLat();
@@ -302,9 +328,8 @@
               var isLand = land[mi >> 2] > 128, rr, gg, bb;
               var polar = Math.abs(la) > 1.25;
               if (isLand) {
-                var t = Math.abs(la) / 1.4;
-                rr = 60 + 110 * t; gg = 130 + 40 * (1 - t) - 20 * t; bb = 60 + 60 * t;
-                if (polar) { rr = 235; gg = 240; bb = 245; }
+                var biome = biomeColor(la / D, ((lo / D + 540) % 360) - 180);
+                rr = (biome >> 16) & 255; gg = (biome >> 8) & 255; bb = biome & 255;
               } else {
                 rr = 14; gg = 60; bb = 130;
                 if (polar) { rr = 200; gg = 220; bb = 235; }
