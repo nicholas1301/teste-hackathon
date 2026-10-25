@@ -280,7 +280,15 @@
             var a = id < 0 ? arcs[~id].slice().reverse() : arcs[id];
             pts = pts.concat(pts.length ? a.slice(1) : a);
           });
-          return pts;
+          // longitudes contínuas através do antimeridiano (evita linhas horizontais na máscara)
+          var off = 0;
+          return pts.map(function (p, i) {
+            if (i) {
+              var d = p[0] - pts[i - 1][0];
+              if (d > 180) off -= 360; else if (d < -180) off += 360;
+            }
+            return [p[0] + off, p[1]];
+          });
         }
         var polys = [];
         function geom(g) {
@@ -310,12 +318,14 @@
           var polys = topoPolygons(topo);
           masks[mode] = rasterize(RES[mode].w, function (m, pt) {
             polys.forEach(function (rings) {
-              m.beginPath();
-              rings.forEach(function (r) {
-                r.forEach(function (p, i) { var q = pt(p); if (i) m.lineTo(q[0], q[1]); else m.moveTo(q[0], q[1]); });
-                m.closePath();
+              [-360, 0, 360].forEach(function (shift) {
+                m.beginPath();
+                rings.forEach(function (r) {
+                  r.forEach(function (p, i) { var q = pt([p[0] + shift, p[1]]); if (i) m.lineTo(q[0], q[1]); else m.moveTo(q[0], q[1]); });
+                  m.closePath();
+                });
+                m.fill("evenodd");
               });
-              m.fill("evenodd");
             });
           });
           applyMask(mode);
@@ -409,30 +419,35 @@
         spinBtn.textContent = "Rotação: " + (spinning ? "ligada" : "desligada");
       };
 
+      function sm(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+
+      // [lat0, lat1, lon0, lon1, cor, suavização]; aplicadas em ordem (a última tem prioridade)
+      var BOXES = [
+        [30, 50, -110, -90, 0x858f4f, 6], [-40, -25, -65, -55, 0x858f4f, 4], [40, 55, 35, 80, 0x858f4f, 6],
+        [-20, 15, 15, 35, 0x97974c, 6],
+        [-15, 8, -80, -45, 0x276f3b, 6], [-10, 5, 10, 30, 0x276f3b, 5], [-10, 20, 95, 150, 0x276f3b, 6], [5, 20, -100, -75, 0x276f3b, 4],
+        [15, 33, -17, 35, 0xc29d63, 6], [12, 32, 35, 60, 0xc29d63, 6], [-30, -15, 10, 30, 0xc29d63, 5], [-30, -15, -80, -68, 0xc29d63, 3],
+        [-32, -18, 120, 145, 0xc29d63, 5], [25, 38, -120, -105, 0xc29d63, 4], [37, 48, 85, 115, 0xc29d63, 5], [35, 48, 45, 80, 0xc29d63, 5],
+        [60, 84, -74, -11, 0xe8eeef, 8], [27, 36, 85, 95, 0xe8eeef, 3], [-36, -15, -72, -68, 0xe8eeef, 2]
+      ];
+      var BASE = [[15, 40, 0x65844c], [48, 60, 0x416c4d], [64, 72, 0x7f8a76], [72, 82, 0xe8eeef]];
+
+      function mixc(c, t, c2) {
+        var r = c[0], g = c[1], b = c[2];
+        c[0] = r + (((c2 >> 16) & 255) - r) * t; c[1] = g + (((c2 >> 8) & 255) - g) * t; c[2] = b + ((c2 & 255) - b) * t;
+      }
+
+      // Cores de bioma por mistura suave, sem bordas retas em lat/lon (que viravam anéis nos polos)
       function biomeColor(latitude, longitude) {
-        if (Math.abs(latitude) > 72 ||
-          (latitude >= 60 && latitude <= 84 && longitude >= -74 && longitude <= -11) ||
-          (latitude >= 27 && latitude <= 36 && longitude >= 85 && longitude <= 95) ||
-          (latitude >= -36 && latitude <= -15 && longitude >= -72 && longitude <= -68)) return 0xe8eeef;
-        if ((latitude >= 15 && latitude <= 33 && longitude >= -17 && longitude <= 35) ||
-          (latitude >= 12 && latitude <= 32 && longitude >= 35 && longitude <= 60) ||
-          (latitude >= -30 && latitude <= -15 && longitude >= 10 && longitude <= 30) ||
-          (latitude >= -30 && latitude <= -15 && longitude >= -80 && longitude <= -68) ||
-          (latitude >= -32 && latitude <= -18 && longitude >= 120 && longitude <= 145) ||
-          (latitude >= 25 && latitude <= 38 && longitude >= -120 && longitude <= -105) ||
-          (latitude >= 37 && latitude <= 48 && longitude >= 85 && longitude <= 115) ||
-          (latitude >= 35 && latitude <= 48 && longitude >= 45 && longitude <= 80)) return 0xc29d63;
-        if ((latitude >= -15 && latitude <= 8 && longitude >= -80 && longitude <= -45) ||
-          (latitude >= -10 && latitude <= 5 && longitude >= 10 && longitude <= 30) ||
-          (latitude >= -10 && latitude <= 20 && longitude >= 95 && longitude <= 150) ||
-          (latitude >= 5 && latitude <= 20 && longitude >= -100 && longitude <= -75)) return 0x276f3b;
-        if (latitude >= -20 && latitude <= 15 && longitude >= 15 && longitude <= 35) return 0x97974c;
-        if ((latitude >= 30 && latitude <= 50 && longitude >= -110 && longitude <= -90) ||
-          (latitude >= -40 && latitude <= -25 && longitude >= -65 && longitude <= -55) ||
-          (latitude >= 40 && latitude <= 55 && longitude >= 35 && longitude <= 80)) return 0x858f4f;
-        if (latitude > 50) return 0x416c4d;
-        if (Math.abs(latitude) < 23) return 0x588545;
-        return 0x65844c;
+        var a = Math.abs(latitude), c = [0x58, 0x85, 0x45], i, k, t;
+        for (i = 0; i < BASE.length; i++) mixc(c, sm(BASE[i][0], BASE[i][1], a), BASE[i][2]);
+        for (i = 0; i < BOXES.length; i++) {
+          k = BOXES[i];
+          t = sm(k[0], k[0] + k[5], latitude) * sm(k[1], k[1] - k[5], latitude) *
+            sm(k[2], k[2] + k[5], longitude) * sm(k[3], k[3] - k[5], longitude);
+          if (t > 0) mixc(c, t, k[4]);
+        }
+        return (Math.round(c[0]) << 16) | (Math.round(c[1]) << 8) | Math.round(c[2]);
       }
 
       function draw() {
