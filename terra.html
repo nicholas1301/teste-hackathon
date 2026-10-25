@@ -327,6 +327,9 @@
                 m.fill("evenodd");
               });
             });
+            // o anel do polo sul no dado anula a calota sob evenodd; tudo ao sul de -84° é terra
+            var top = pt([0, -84])[1];
+            m.fillRect(0, top, RES[mode].w, RES[mode].w / 2 - top);
           });
           applyMask(mode);
         }).catch(function () {
