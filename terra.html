@@ -339,6 +339,24 @@
       applyMask("low");
       setRes("high");
 
+      // Textura real (NASA Blue Marble) para a cor da terra; sem ela, usa biomeColor
+      var tex = null, TW = 2048, TH = 1024;
+      (function () {
+        var im = new Image();
+        im.crossOrigin = "anonymous";
+        im.onload = function () {
+          var c = document.createElement("canvas");
+          c.width = TW; c.height = TH;
+          var t = c.getContext("2d");
+          t.imageSmoothingQuality = "high";
+          t.drawImage(im, 0, 0, TW, TH);
+          tex = t.getImageData(0, 0, TW, TH).data;
+          RES.high.label = "Natural Earth 1:50m + NASA Blue Marble (alta resolução)";
+          if (resMode === "high") document.getElementById("resinfo").textContent = RES.high.label;
+        };
+        im.src = "https://cdn.jsdelivr.net/npm/three-globe@2/example/img/earth-blue-marble.jpg";
+      })();
+
       var stars = [];
       for (var i = 0; i < 180; i++) stars.push([Math.random(), Math.random(), Math.random() * 1.2 + .3, Math.random() * .6 + .3]);
 
@@ -495,8 +513,13 @@
             var mi = ((Math.min(MH - 1, (v * MH) | 0)) * MW + ((u * MW) | 0)) * 4;
             var isLand = land[mi >> 2] > 128, rr, gg, bb;
             if (isLand) {
-              var biome = biomeColor(la / D, ((lo / D + 540) % 360) - 180);
-              rr = (biome >> 16) & 255; gg = (biome >> 8) & 255; bb = biome & 255;
+              if (tex && resMode === "high") {
+                var ti = (Math.min(TH - 1, (v * TH) | 0) * TW + Math.min(TW - 1, (u * TW) | 0)) * 4;
+                rr = tex[ti]; gg = tex[ti + 1]; bb = tex[ti + 2];
+              } else {
+                var biome = biomeColor(la / D, ((lo / D + 540) % 360) - 180);
+                rr = (biome >> 16) & 255; gg = (biome >> 8) & 255; bb = biome & 255;
+              }
             } else {
               rr = 14; gg = 60; bb = 130;
             }
