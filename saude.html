@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#0d1117">
+    <title>Health Monitoring Dashboard — Astronautas</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d1117; --card: #141a23; --card2: #1a212c; --line: #263041; --line-soft: #3a475b;
+        --text: #e6eaf0; --muted: #8b97a8; --accent: #7fa8cc;
+        --ok: #4caf8a; --warn: #d4a24c; --crit: #d96b6b; --none: #5d6b7f;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5; font-size: 14px; }
+      header.bar { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 12px 24px; background: rgba(13,17,23,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+      .back { justify-self: start; padding: 6px 12px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; color: var(--muted); text-decoration: none; }
+      .back:hover { color: var(--text); border-color: var(--line-soft); }
+      h1 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; text-align: center; }
+      h1 small { display: block; font-size: 11px; font-weight: 400; letter-spacing: .06em; color: var(--muted); text-transform: none; }
+      h2 { margin: 0 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+      h2 .t { color: var(--text); }
+      h3 { margin: 16px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+      main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 40px; display: grid; gap: 16px; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 18px; }
+      .muted { color: var(--muted); font-size: 13px; }
+      .grid2 { display: grid; grid-template-columns: minmax(300px, 440px) 1fr; gap: 16px; align-items: start; }
+      .top { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+      @media (max-width: 820px) { .grid2 { grid-template-columns: 1fr; } header.bar { padding: 10px 14px; } h1 small { display: none; } }
+
+      .pill { display: inline-flex; align-items: center; gap: 7px; padding: 2px 10px; border-radius: 3px; font-size: 12px; font-weight: 600; letter-spacing: .02em; border: 1px solid currentColor; text-transform: none; }
+      .lv-0 { color: var(--ok); } .lv-1 { color: var(--warn); } .lv-2 { color: var(--crit); } .lv-n { color: var(--none); }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; flex: none; }
+
+      .overall { display: flex; align-items: center; gap: 14px; }
+      .overall .lamp { width: 14px; height: 14px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 18%, transparent); flex: none; }
+      .overall strong { font-size: 20px; font-weight: 600; display: block; line-height: 1.2; }
+      .bar-track { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin: 8px 0 6px; }
+      .bar-fill { height: 100%; background: var(--accent); transition: width .4s; }
+      .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+      .badge { padding: 2px 8px; border-radius: 3px; font-size: 12px; border: 1px solid var(--line); color: var(--none); }
+      .badge.on { color: var(--text); border-color: var(--accent); }
+      .badge.on::before { content: "✓ "; color: var(--accent); }
+
+      .alert { border-radius: 6px; padding: 12px 16px; border: 1px solid var(--line); border-left: 4px solid; background: var(--card); }
+      .alert.lv-2 { border-left-color: var(--crit); } .alert.lv-1 { border-left-color: var(--warn); } .alert.lv-n { border-left-color: var(--none); }
+      .alert, .alert * { color: var(--text); }
+      .alert ul { margin: 6px 0 0; padding-left: 18px; }
+      .alert + .alert { margin-top: 10px; }
+      .alert strong.lv-2 { color: var(--crit); } .alert strong.lv-1 { color: var(--warn); }
+
+      select, input[type=number], button { font: inherit; color: var(--text); }
+      select, input[type=number] { background: var(--card2); border: 1px solid var(--line); border-radius: 4px; padding: 7px 10px; }
+      select { width: 100%; }
+      input[type=number] { width: 120px; }
+      button { padding: 7px 14px; border: 1px solid var(--line-soft); border-radius: 4px; background: transparent; cursor: pointer; }
+      button:hover { border-color: var(--accent); }
+      button.primary { background: var(--accent); color: #0b141d; font-weight: 600; border-color: var(--accent); }
+      button.primary:hover { filter: brightness(1.1); }
+      button.small { padding: 0 7px; font-size: 12px; color: var(--muted); }
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+      /* figura anatômica */
+      #body-wrap { display: flex; justify-content: center; }
+      svg.body { width: 100%; max-width: 420px; height: auto; }
+      svg.body .frame { fill: none; stroke: var(--line-soft); stroke-width: 1; }
+      svg.body .ghost { fill: none; stroke: var(--line-soft); stroke-width: .8; stroke-dasharray: 3 3; opacity: .7; }
+      svg.body .deco { fill: none; stroke: #8fa4bb; stroke-width: .8; opacity: .6; pointer-events: none; stroke-linecap: round; }
+      svg.body .deco.solid { fill: #8fa4bb; fill-opacity: .25; }
+      .region { cursor: pointer; fill-opacity: .2; stroke-width: 1.4; transition: fill-opacity .2s; outline: none; }
+      .region:hover, .region:focus-visible, .region.sel { fill-opacity: .42; }
+      .region.sel { stroke-width: 2.2; }
+      .region:focus-visible path, .region:focus-visible ellipse { stroke-dasharray: 4 2; }
+      .region.lv-0 { fill: var(--ok); stroke: var(--ok); } .region.lv-1 { fill: var(--warn); stroke: var(--warn); }
+      .region.lv-2 { fill: var(--crit); stroke: var(--crit); } .region.lv-n { fill: var(--none); stroke: var(--none); }
+      .leader { stroke: var(--line-soft); stroke-width: .8; }
+      .rlabel { cursor: pointer; }
+      .rlabel .n { font-size: 11px; font-weight: 600; letter-spacing: .1em; fill: var(--muted); }
+      .rlabel .s { font-size: 10px; letter-spacing: .04em; }
+      .rlabel.sel .n { fill: var(--text); }
+      .rlabel .s.lv-0 { fill: var(--ok); } .rlabel .s.lv-1 { fill: var(--warn); } .rlabel .s.lv-2 { fill: var(--crit); } .rlabel .s.lv-n { fill: var(--none); }
+      .beat { transform-box: fill-box; transform-origin: center; animation: beat var(--beat, 1s) ease-in-out infinite; }
+      @keyframes beat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.22); } 30% { transform: scale(1); } 45% { transform: scale(1.14); } }
+      @media (prefers-reduced-motion: reduce) { .beat { animation: none; } }
+
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border: 1px solid var(--line-soft); border-radius: 3px; font-size: 13px; }
+      .chip.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+      .chip span.l { color: var(--text); }
+
+      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+      .ind { text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; background: var(--card2); border-radius: 4px; border: 1px solid var(--line); border-left: 3px solid var(--none); }
+      .ind.lv-0 { border-left-color: var(--ok); } .ind.lv-1 { border-left-color: var(--warn); } .ind.lv-2 { border-left-color: var(--crit); }
+      .ind.sel { border-color: var(--accent); border-left-width: 3px; }
+      .ind.lv-0.sel { border-left-color: var(--ok); } .ind.lv-1.sel { border-left-color: var(--warn); } .ind.lv-2.sel { border-left-color: var(--crit); }
+      .ind .name { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+      .ind .val { font-size: 24px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+      .ind .val small { font-size: 12px; font-weight: 400; color: var(--muted); }
+      .ind .st { font-size: 12px; font-weight: 600; }
+      .tags { display: flex; gap: 6px; min-height: 18px; margin-top: 2px; }
+      .tag { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 0 6px; border-radius: 2px; border: 1px solid var(--line-soft); color: var(--muted); }
+      .tag.focus { color: var(--accent); border-color: var(--accent); }
+
+      form.log { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 14px 0 6px; }
+      form.log label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+      .scale { display: flex; gap: 0; }
+      .scale label { flex-direction: row; cursor: pointer; }
+      .scale input { position: absolute; opacity: 0; }
+      .scale span { min-width: 46px; text-align: center; padding: 4px 0; font-size: 20px; line-height: 1.4; filter: grayscale(1); opacity: .7; border: 1px solid var(--line-soft); margin-left: -1px; color: var(--muted); }
+      .scale label:first-child span { border-radius: 4px 0 0 4px; margin-left: 0; }
+      .scale label:last-child span { border-radius: 0 4px 4px 0; }
+      .scale input:checked + span { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); filter: none; opacity: 1; }
+      .scale input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .err { color: var(--crit); font-size: 13px; min-height: 18px; }
+
+      svg.chart { width: 100%; height: auto; background: var(--card2); border: 1px solid var(--line); border-radius: 4px; }
+      svg.chart text { fill: var(--muted); font-size: 11px; }
+      .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+      .legend i { display: inline-block; width: 12px; height: 8px; border-radius: 1px; margin-right: 6px; }
+
+      .info { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 24px; }
+      .info p { margin: 0 0 4px; }
+      .guide { padding: 10px 14px; border-radius: 4px; border-left: 3px solid; background: var(--card2); }
+      .guide.lv-0 { border-color: var(--ok); } .guide.lv-1 { border-color: var(--warn); } .guide.lv-2 { border-color: var(--crit); } .guide.lv-n { border-color: var(--none); }
+      .guide { color: var(--text); }
+
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 6px; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 500; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+      .region-title { margin: 14px 0 6px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+      footer { text-align: center; padding: 0 16px 30px; }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <a class="back" href="index.html">← Voltar</a>
+      <h1>Health Monitoring Dashboard<small>Monitoramento de saúde de astronautas</small></h1>
+      <span aria-hidden="true"></span>
+    </header>
+
+    <main>
+      <section class="top" aria-label="Resumo">
+        <div class="card">
+          <h2>Estado geral</h2>
+          <div class="overall" id="overall"></div>
+        </div>
+        <div class="card" id="game"></div>
+        <div class="card">
+          <h2>Ambiente da missão</h2>
+          <select id="env" aria-label="Ambiente da missão"></select>
+          <div id="env-info" class="muted" style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <section id="alerts" aria-live="polite"></section>
+
+      <section class="grid2">
+        <div class="card">
+          <h2>Anatomia</h2>
+          <p class="muted" style="margin:0 0 8px">Selecione uma região para ver sua função, os riscos no espaço e os indicadores relacionados.</p>
+          <div id="body-wrap"></div>
+          <div id="region-info"></div>
+        </div>
+        <div class="card" id="detail"></div>
+      </section>
+
+      <section class="card">
+        <h2>Indicadores de saúde</h2>
+        <div class="cards" id="cards"></div>
+      </section>
+
+      <section class="card">
+        <h2>Dados e rotina</h2>
+        <div class="actions">
+          <button id="demo" type="button">Carregar dados de demonstração</button>
+          <button id="export" type="button">Exportar JSON</button>
+          <button id="clear" type="button">Apagar todos os dados</button>
+        </div>
+        <p class="muted" style="margin:0">Os dados ficam apenas neste navegador (localStorage). Rotina sugerida: medir todos os indicadores uma vez por dia (frequência cardíaca, pressão e glicemia ao acordar), registrar sono e humor pela manhã e o exercício ao final do dia.</p>
+      </section>
+    </main>
+
+    <footer class="muted">Ferramenta educacional para o desafio de monitoramento de saúde de astronautas. Não substitui orientação médica: em caso de alerta, contate o cirurgião de voo.</footer>
+
+    <script>
+      "use strict";
+      const STORE = "hm.v1";
+      const LEVELS = [{ key: "ok", label: "Normal" }, { key: "warn", label: "Atenção" }, { key: "crit", label: "Alerta" }];
+      const COLORS = ["#4caf8a", "#d4a24c", "#d96b6b"];
+      const MOOD_TXT = ["Muito mal", "Mal", "Neutro", "Bem", "Muito bem"];
+      const MOOD_ICON = ["😞", "😕", "😐", "🙂", "😄"];
+
+      // Faixas de referência para adultos (valores educacionais, não diagnósticos).
+      const IND = {
+        fc: {
+          name: "Frequência cardíaca", unit: "bpm", min: 20, max: 220, step: 1,
+          ok: [60, 100], warn: [50, 110], disp: [40, 130],
+          how: "Pelo oxímetro/relógio de pulso ou palpando o pulso no pescoço ou punho por 30 s (multiplique por 2), em repouso e sentado.",
+          why: "A microgravidade desloca fluidos para a cabeça e o coração se remodela; arritmias e taquicardia podem surgir por estresse, desidratação ou radiação.",
+          tips: [
+            "Ritmo de repouso dentro do esperado. Mantenha o exercício aeróbico e a hidratação.",
+            "Fora da faixa ideal. Repita a medição após 10 min de repouso, hidrate-se e revise cafeína, estresse e sono.",
+            "Valor muito fora da faixa. Repouse, repita a medição e contate o cirurgião de voo, sobretudo se houver tontura, dor no peito ou falta de ar.",
+          ],
+        },
+        bp: {
+          name: "Pressão arterial", unit: "mmHg", min: 40, max: 260, step: 1, dual: true,
+          ok: [90, 129], warn: [80, 139], ok2: [60, 84], warn2: [50, 89], disp: [50, 150],
+          how: "Com o manguito do kit médico no braço na altura do coração, sentado e relaxado por 5 min. Registre sistólica (maior) e diastólica (menor).",
+          why: "Sem a gravidade, o sangue se redistribui e a regulação da pressão muda; ao voltar a campos gravitacionais há risco de intolerância ortostática (desmaios).",
+          tips: [
+            "Pressão adequada. Continue com hidratação e exercício regulares.",
+            "Levemente fora do ideal. Reduza sódio, hidrate-se, descanse e meça de novo em 15 min. Acompanhe a tendência.",
+            "Pressão muito alta ou baixa. Sente-se ou deite-se, repita a medição e contate o cirurgião de voo. Evite esforço até a orientação.",
+          ],
+        },
+        spo2: {
+          name: "Saturação de O₂", unit: "%", min: 50, max: 100, step: 1,
+          ok: [95, 100], warn: [90, 100], disp: [85, 100],
+          how: "Com o oxímetro de dedo, mão aquecida e parada, por cerca de 30 s até o valor estabilizar.",
+          why: "Em ambientes fechados, falhas de ventilação podem elevar o CO₂ ou reduzir o O₂. Queda de saturação é um sinal precoce de problema no ambiente ou nos pulmões.",
+          tips: [
+            "Oxigenação adequada.",
+            "Levemente baixa. Verifique ventilação e CO₂ do habitáculo, respire fundo e repita a medição.",
+            "Saturação baixa. Verifique imediatamente o ambiente (O₂/CO₂), avise a tripulação e contate o cirurgião de voo.",
+          ],
+        },
+        temp: {
+          name: "Temperatura corporal", unit: "°C", min: 33, max: 42, step: 0.1,
+          ok: [36, 37.5], warn: [35.5, 38], disp: [35, 39],
+          how: "Com termômetro timpânico ou de testa, em local sem ventilação direta e 30 min após exercício.",
+          why: "Sem convecção natural o calor se acumula ao redor do corpo, e o sistema imune se altera no espaço, o que pode mascarar ou disparar infecções.",
+          tips: [
+            "Temperatura normal.",
+            "Levemente alterada. Reduza a atividade, hidrate-se, ajuste a roupa/ventilação e meça novamente em 1 h.",
+            "Febre ou hipotermia. Isole-se se houver sintomas de infecção, hidrate-se e contate o cirurgião de voo.",
+          ],
+        },
+        glicose: {
+          name: "Glicemia", unit: "mg/dL", min: 30, max: 500, step: 1,
+          ok: [70, 140], warn: [60, 180], disp: [50, 200],
+          how: "Com o glicosímetro: lave as mãos, faça a punção no dedo e aplique a gota na tira. Indique em jejum ou até 2 h após refeição.",
+          why: "Estresse, redução de atividade física e mudanças na dieta alteram a sensibilidade à insulina durante missões longas.",
+          tips: [
+            "Glicemia dentro da faixa esperada.",
+            "Fora da faixa ideal. Revise a última refeição, prefira carboidratos complexos, hidrate-se e repita a medição.",
+            "Glicemia muito alta ou baixa. Se baixa, ingira carboidrato de ação rápida; em qualquer caso contate o cirurgião de voo.",
+          ],
+        },
+        sono: {
+          name: "Sono", unit: "h", min: 0, max: 16, step: 0.5, daily: true,
+          ok: [7, 10], warn: [5.5, 11], disp: [3, 11],
+          how: "Informe as horas dormidas na última noite (aparelho de sono ou estimativa ao acordar).",
+          why: "Ciclos de luz de 90 min em órbita, ruído e confinamento reduzem o sono, o que afeta atenção, humor, imunidade e desempenho.",
+          tips: [
+            "Sono adequado. Mantenha horário regular e a iluminação noturna reduzida.",
+            "Sono curto ou excessivo. Reduza telas e luz azul antes de dormir, mantenha horário fixo e minimize ruído.",
+            "Privação importante de sono. Evite tarefas críticas, informe a tripulação e converse com o cirurgião de voo sobre estratégias de descanso.",
+          ],
+        },
+        humor: {
+          name: "Humor", unit: "", min: 1, max: 5, mood: true,
+          ok: [4, 5], warn: [2, 3], disp: [1, 5],
+          how: "Escolha a nota que melhor descreve como você se sentiu nas últimas 24 h (1 = muito mal, 5 = muito bem).",
+          why: "Isolamento, confinamento e distância da Terra aumentam o risco de ansiedade, depressão e conflitos na tripulação.",
+          tips: [
+            "Bom estado emocional. Mantenha contato com a família e momentos de lazer.",
+            "Humor mais baixo. Converse com um colega, faça uma chamada para casa, pratique respiração guiada e mantenha a rotina de lazer.",
+            "Humor muito baixo. Procure apoio: converse com a tripulação e agende uma conversa com o suporte psicológico em solo.",
+          ],
+        },
+        exercicio: {
+          name: "Exercício", unit: "min", min: 0, max: 600, step: 5, daily: true, sum: true,
+          ok: [60, 600], warn: [30, 600], disp: [0, 150],
+          how: "Some os minutos de exercício do dia (esteira, bicicleta, resistência). Cada registro do dia é somado.",
+          why: "Sem carga gravitacional, ossos e músculos se perdem rapidamente (cerca de 1% de densidade óssea por mês em partes do esqueleto). O exercício diário é a principal contramedida.",
+          tips: [
+            "Meta diária cumprida. Inclua treino de resistência e aeróbico.",
+            "Abaixo da meta diária (~60 min+). Complete com resistência para pernas e coluna.",
+            "Muito pouco exercício hoje. Priorize uma sessão curta de resistência e aeróbico; a perda óssea e muscular é cumulativa.",
+          ],
+        },
+      };
+      const ORDER = Object.keys(IND);
+
+      const REGIONS = {
+        head: {
+          name: "Cabeça e cérebro", short: "CABEÇA", inds: ["humor", "sono", "temp"],
+          fn: "Controla cognição, emoções, sono e a regulação da temperatura.",
+          risk: "Fluidos se deslocam para a cabeça, a luz e o confinamento desregulam o ciclo circadiano e o isolamento afeta a saúde mental.",
+        },
+        chest: {
+          name: "Coração e pulmões", short: "TÓRAX", inds: ["fc", "bp", "spo2"],
+          fn: "Bombeiam o sangue e fazem a troca de oxigênio e gás carbônico.",
+          risk: "Redistribuição de fluidos, atrofia cardíaca, radiação e ar do habitáculo podem causar arritmias, hipotensão e queda de oxigenação.",
+        },
+        abdomen: {
+          name: "Metabolismo e digestão", short: "ABDOME", inds: ["glicose"],
+          fn: "Processa nutrientes e controla o açúcar no sangue.",
+          risk: "Dieta restrita, estresse e menor atividade alteram a sensibilidade à insulina e o apetite, com risco nutricional.",
+        },
+        arms: {
+          name: "Braços, músculos e ossos", short: "BRAÇOS", inds: ["exercicio"],
+          fn: "Sustentam a movimentação e a execução de tarefas.",
+          risk: "Sem carga, ocorre atrofia muscular e perda de densidade óssea; o treino de resistência é a principal prevenção.",
+        },
+        legs: {
+          name: "Pernas, quadril e ossos", short: "PERNAS", inds: ["exercicio"],
+          fn: "Sustentam o peso e a locomoção; são os ossos que mais sofrem sem gravidade.",
+          risk: "Perda óssea de até 1% ao mês em quadril e pernas, atrofia muscular e risco de fraturas e cálculos renais.",
+        },
+      };
+
+      const ENVS = {
+        nave: {
+          name: "🚀 Nave espacial (trânsito)", focus: ["exercicio", "sono", "humor"],
+          hazards: ["Radiação cósmica fora da magnetosfera", "Isolamento e atraso de comunicação", "Microgravidade prolongada"],
+          tip: "Priorize treino de resistência e rotinas de sono; o apoio de solo tem atraso, então autonomia nas decisões é essencial.",
+        },
+        estacao: {
+          name: "🛰️ Estação espacial (órbita baixa)", focus: ["exercicio", "bp", "spo2"],
+          hazards: ["Microgravidade", "Ciclos de luz de 90 min", "Ar reciclado em ambiente fechado"],
+          tip: "Cerca de 2 h de exercício por dia e monitoramento do ar. Comunicação em tempo quase real com o cirurgião de voo.",
+        },
+        rover: {
+          name: "🚙 Rover pressurizado", focus: ["fc", "temp", "humor"],
+          hazards: ["Espaço mínimo e sedentarismo", "Vibração e poeira", "Controle térmico limitado"],
+          tip: "Faça alongamentos nas paradas, hidrate-se e acompanhe a temperatura e o estresse da tripulação.",
+        },
+        base: {
+          name: "🌕 Base lunar / marciana", focus: ["exercicio", "glicose", "sono"],
+          hazards: ["Gravidade parcial (1/6 ou 3/8 g)", "Poeira de regolito irritante", "Radiação na superfície e dias longos"],
+          tip: "A gravidade parcial ajuda os ossos, mas não basta: mantenha treino de carga e atenção ao sono em dias/noites longos.",
+        },
+      };
+
+      const state = load();
+      let selInd = "fc";
+      let selRegion = "chest";
+
+      function load() {
+        try {
+          const s = JSON.parse(localStorage.getItem(STORE));
+          if (s && Array.isArray(s.records)) return { env: ENVS[s.env] ? s.env : "estacao", records: s.records.filter(r => IND[r.k] && isFinite(r.t) && isFinite(r.v)) };
+        } catch (e) { /* ignora dados inválidos */ }
+        return { env: "estacao", records: [] };
+      }
+      function save() {
+        try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* armazenamento indisponível */ }
+      }
+
+      const $ = s => document.querySelector(s);
+      const inR = (v, r) => v >= r[0] && v <= r[1];
+      const lvl1 = (v, ok, warn) => inR(v, ok) ? 0 : inR(v, warn) ? 1 : 2;
+      function levelOf(k, rec) {
+        const d = IND[k];
+        let l = lvl1(rec.v, d.ok, d.warn);
+        if (d.dual) l = Math.max(l, lvl1(rec.v2, d.ok2, d.warn2));
+        return l;
+      }
+      const dayKey = t => { const d = new Date(t); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+      const todayKey = () => dayKey(Date.now());
+      const recs = k => state.records.filter(r => r.k === k).sort((a, b) => a.t - b.t);
+      const unitOf = (k, r) => IND[k].mood ? " · " + MOOD_TXT[r.v - 1] : " " + IND[k].unit;
+
+      // Para exercício, o valor do dia é a soma dos registros; para os demais, o último registro.
+      function current(k) {
+        const list = recs(k);
+        if (!list.length) return null;
+        const last = list[list.length - 1];
+        if (!IND[k].sum) return last;
+        const day = dayKey(last.t);
+        return { ...last, v: list.filter(r => dayKey(r.t) === day).reduce((s, r) => s + r.v, 0) };
+      }
+      function fmt(k, r) {
+        const d = IND[k];
+        if (d.mood) return r.v + "/5";
+        if (d.dual) return r.v + "/" + r.v2;
+        return String(Math.round(r.v * 10) / 10);
+      }
+      function loggedToday(k) { return recs(k).some(r => dayKey(r.t) === todayKey()); }
+      function fmtDate(t) { return new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+
+      // Gamificação derivada dos registros (sem estado extra a manter).
+      function game() {
+        const byDay = {};
+        state.records.forEach(r => { (byDay[dayKey(r.t)] ||= new Set()).add(r.k); });
+        const days = Object.keys(byDay);
+        const complete = days.filter(d => byDay[d].size === ORDER.length).length;
+        const points = state.records.length * 10 + complete * 50;
+        let streak = 0;
+        const d = new Date();
+        if (!(byDay[dayKey(d)] && byDay[dayKey(d)].size >= 3)) d.setDate(d.getDate() - 1);
+        while (byDay[dayKey(d)] && byDay[dayKey(d)].size >= 3) { streak++; d.setDate(d.getDate() - 1); }
+        const exDays = days.filter(day => recs("exercicio").filter(r => dayKey(r.t) === day).reduce((s, r) => s + r.v, 0) >= 60).length;
+        const allGreen = ORDER.every(k => { const c = current(k); return c && loggedToday(k) && levelOf(k, c) === 0; });
+        const badges = [
+          { name: "Primeira medição", on: state.records.length > 0 },
+          { name: "Dia completo", on: complete > 0 },
+          { name: "Sequência de 3 dias", on: streak >= 3 },
+          { name: "Sequência de 7 dias", on: streak >= 7 },
+          { name: "7 dias de exercício", on: exDays >= 7 },
+          { name: "Todos normais hoje", on: allGreen },
+        ];
+        return { points, streak, level: Math.floor(points / 150) + 1, progress: (points % 150) / 150, badges };
+      }
+
+      function render() {
+        renderTop();
+        renderAlerts();
+        renderBody();
+        renderDetail();
+        renderCards();
+      }
+
+      function renderTop() {
+        const cur = ORDER.map(k => [k, current(k)]).filter(x => x[1]);
+        const worst = cur.length ? Math.max(...cur.map(([k, c]) => levelOf(k, c))) : -1;
+        const msg = worst < 0 ? ["Sem dados", "Registre sua primeira medição."] : [LEVELS[worst].label, ["Todos os indicadores registrados estão normais.", "Há indicadores que merecem atenção.", "Há indicadores em alerta. Veja as orientações."][worst]];
+        const c = worst < 0 ? "n" : worst;
+        $("#overall").innerHTML = `<span class="lamp lv-${c}"></span><div><strong class="lv-${c}">${msg[0]}</strong><span class="muted">${msg[1]}</span><br><span class="muted">${cur.length}/${ORDER.length} indicadores registrados</span></div>`;
+
+        const g = game();
+        $("#game").innerHTML = `<h2>Engajamento <span class="t">Nível ${g.level}</span></h2>
+          <div class="bar-track" role="progressbar" aria-label="Progresso do nível" aria-valuenow="${Math.round(g.progress * 100)}" aria-valuemin="0" aria-valuemax="100"><div class="bar-fill" style="width:${g.progress * 100}%"></div></div>
+          <div class="muted">${g.points} pontos · sequência de ${g.streak} dia(s)</div>
+          <div class="badges">${g.badges.map(b => `<span class="badge${b.on ? " on" : ""}" title="${b.on ? "Conquistado" : "Bloqueado"}">${b.name}</span>`).join("")}</div>
+          <div class="muted" style="margin-top:10px">+10 por medição, +50 por dia com todos os indicadores.</div>`;
+
+        const env = ENVS[state.env];
+        $("#env").innerHTML = Object.entries(ENVS).map(([k, e]) => `<option value="${k}"${k === state.env ? " selected" : ""}>${e.name}</option>`).join("");
+        $("#env-info").innerHTML = `<strong style="color:var(--text)">Principais riscos</strong><ul style="margin:4px 0 8px;padding-left:18px">${env.hazards.map(h => `<li>${h}</li>`).join("")}</ul>${env.tip}`;
+      }
+
+      function renderAlerts() {
+        const items = ORDER.map(k => [k, current(k)]).filter(x => x[1]).map(([k, c]) => ({ k, l: levelOf(k, c) })).filter(x => x.l > 0).sort((a, b) => b.l - a.l);
+        const pend = ORDER.filter(k => !loggedToday(k));
+        let html = "";
+        if (items.length) {
+          const w = items[0].l;
+          html += `<div class="alert lv-${w}"><strong class="lv-${w}">${w === 2 ? "Alerta de saúde" : "Atenção"}</strong>${w === 2 ? " — considere contatar o cirurgião de voo." : ""}<ul>${items.map(i => `<li><b>${IND[i.k].name}:</b> ${IND[i.k].tips[i.l]}</li>`).join("")}</ul></div>`;
+        }
+        if (pend.length) {
+          html += `<div class="alert lv-n"><strong>Medições pendentes hoje</strong><div class="chips" style="margin-top:8px">${pend.map(k => `<button type="button" class="chip" data-ind="${k}">${IND[k].name}</button>`).join("")}</div></div>`;
+        }
+        $("#alerts").innerHTML = html;
+      }
+
+      function regionLevel(key) {
+        const have = REGIONS[key].inds.filter(k => current(k));
+        return have.length ? Math.max(...have.map(k => levelOf(k, current(k)))) : "n";
+      }
+
+      // Esquema anatômico inspirado no Homem Vitruviano: círculo centrado no umbigo, quadrado inscrito
+      // e figura com braços estendidos. O lado esquerdo é espelhado para o direito.
+      const mirror = s => `<g transform="translate(400 0) scale(-1 1)">${s}</g>`;
+      const both = s => s + mirror(s);
+      const ARM = "M163 102 Q132 102 100 104 L48 107 Q40 108 40 112 Q40 116 48 117 L100 119 Q132 122 164 126 Z";
+      const LEG = "M163 240 L199 240 L198 300 Q196 328 194 352 L197 358 L174 358 Q176 353 180 352 Q180 328 178 300 Q165 272 163 240 Z";
+      const DECO_ARM = `<path class="deco" d="M162 113 L48 112 M100 108.5 A3.5 3.5 0 1 0 100 115.5 A3.5 3.5 0 1 0 100 108.5 M48 108 L41 107 M48 112 L40 112 M48 115 L41 117"/>`;
+      const DECO_LEG = `<path class="deco" d="M185 246 L188 296 M188 304 L188 346 M180 352 L194 352 M181 276 Q190 290 197 276"/><circle class="deco" cx="188" cy="300" r="4"/><circle class="deco" cx="186" cy="244" r="5"/>`;
+      const DECO_RIBS = [112, 120, 128, 136, 144, 152].map(y => `M198 ${y} Q182 ${y - 3} ${169 + (y - 112) * .2} ${y + 7}`).join(" ");
+      const DECO_CHEST = `<path class="deco" d="M200 106 Q182 100 163 107 ${DECO_RIBS}"/><path class="deco" d="M196 109 Q174 109 172 132 Q172 150 192 153 Q196 130 196 109Z"/>`;
+      const DECO_PELVIS = `<path class="deco" d="M165 232 Q170 204 196 214 L198 240 M170 238 Q184 252 200 248"/>`;
+
+      function renderBody() {
+        const fc = current("fc");
+        const beat = fc ? Math.min(2, Math.max(0.4, 60 / fc.v)) : 1;
+        const R = (key, shape) => `<g class="region lv-${regionLevel(key)}${selRegion === key ? " sel" : ""}" data-region="${key}" tabindex="0" role="button" aria-label="${REGIONS[key].name}">${shape}</g>`;
+        const L = (key, x, y, lx, ly) => {
+          const lv = regionLevel(key);
+          return `<g class="rlabel${selRegion === key ? " sel" : ""}" data-region="${key}"><line class="leader" x1="${lx}" y1="${ly}" x2="${x - 4}" y2="${y - 4}"/><text class="n" x="${x}" y="${y}">${REGIONS[key].short}</text><text class="s lv-${lv}" x="${x}" y="${y + 12}">${lv === "n" ? "SEM DADOS" : LEVELS[lv].label.toUpperCase()}</text></g>`;
+        };
+        $("#body-wrap").innerHTML = `<svg class="body" viewBox="0 -45 400 420" style="--beat:${beat}s" role="group" aria-label="Figura anatômica interativa">
+          <circle class="frame" cx="200" cy="162" r="198"/>
+          <rect class="frame" x="40" y="40" width="320" height="320"/>
+          <path class="frame" stroke-dasharray="1 5" d="M200 -36 V360"/>
+          <path class="ghost" d="M160 104 L50 33 M240 104 L350 33 M190 240 L152 355 M210 240 L248 355"/>
+          ${R("head", `<ellipse cx="200" cy="62" rx="17" ry="22"/>`)}
+          <path class="deco" d="M193 84 V101 M207 84 V101 M191 58 h6 M203 58 h6 M200 60 v8 M195 76 h10"/>
+          ${R("chest", `<path d="M160 102 Q180 98 200 99 Q220 98 240 102 Q238 140 228 168 L172 168 Q162 140 160 102Z"/>`)}
+          ${R("abdomen", `<path d="M172 168 L228 168 Q231 200 237 240 L163 240 Q169 200 172 168Z"/>`)}
+          ${R("arms", both(`<path d="${ARM}"/>`))}
+          ${R("legs", both(`<path d="${LEG}"/>`))}
+          ${both(DECO_ARM + DECO_LEG + DECO_CHEST)}
+          ${DECO_PELVIS + mirror(DECO_PELVIS)}
+          <path class="deco" stroke-width="3" stroke-dasharray="1.5 3.5" d="M200 100 V244"/>
+          <circle class="deco" cx="200" cy="162" r="2"/>
+          <g class="deco solid" transform="translate(208 128)"><path class="beat" d="M0 6 C-10 -2 -8 -9 -3 -9 C-1 -9 0 -7 0 -6 C0 -7 1 -9 3 -9 C8 -9 10 -2 0 6Z"/></g>
+          ${L("head", 262, 54, 218, 56)}
+          ${L("chest", 262, 148, 234, 140)}
+          ${L("abdomen", 262, 200, 226, 196)}
+          ${L("legs", 262, 304, 218, 300)}
+          ${L("arms", 50, 152, 70, 122)}
+        </svg>`;
+
+        const r = REGIONS[selRegion];
+        $("#region-info").innerHTML = `<div class="region-title">${r.name}</div>
+          <p class="muted" style="margin:0 0 6px"><b style="color:var(--text)">Função:</b> ${r.fn}</p>
+          <p class="muted" style="margin:0"><b style="color:var(--text)">Riscos no espaço:</b> ${r.risk}</p>
+          <div class="chips">${r.inds.map(k => { const c = current(k); const l = c ? levelOf(k, c) : "n"; return `<button type="button" class="chip lv-${l}${selInd === k ? " sel" : ""}" data-ind="${k}"><span class="dot"></span><span class="l">${IND[k].name}</span></button>`; }).join("")}</div>`;
+      }
+
+      function renderCards() {
+        const focus = ENVS[state.env].focus;
+        $("#cards").innerHTML = ORDER.map(k => {
+          const d = IND[k], c = current(k), l = c ? levelOf(k, c) : "n";
+          return `<button type="button" class="ind lv-${l}${selInd === k ? " sel" : ""}" data-ind="${k}">
+            <span class="name">${d.name}</span>
+            <span class="val">${c ? fmt(k, c) : "—"} <small>${c && !d.mood ? d.unit : ""}</small></span>
+            <span class="st lv-${l}">${c ? LEVELS[l].label : "Sem dados"}</span>
+            <span class="tags">${focus.includes(k) ? `<span class="tag focus">Foco</span>` : ""}${loggedToday(k) ? "" : `<span class="tag">Pendente hoje</span>`}</span>
+          </button>`;
+        }).join("");
+      }
+
+      function formHtml(k) {
+        const d = IND[k];
+        if (d.mood) return `<div><div class="muted" style="margin-bottom:4px">Nota (1 = muito mal, 5 = muito bem)</div><div class="scale" role="radiogroup" aria-label="Humor">${[1, 2, 3, 4, 5].map(i => `<label title="${MOOD_TXT[i - 1]}"><input type="radio" name="mood" value="${i}" required><span>${MOOD_ICON[i - 1]}</span></label>`).join("")}</div></div>`;
+        if (d.dual) return `<label>Sistólica (mmHg)<input type="number" name="v" min="${d.min}" max="${d.max}" step="1" required></label><label>Diastólica (mmHg)<input type="number" name="v2" min="${d.min}" max="${d.max}" step="1" required></label>`;
+        return `<label>${d.name} (${d.unit})<input type="number" name="v" min="${d.min}" max="${d.max}" step="${d.step}" required></label>`;
+      }
+
+      function chartSvg(k) {
+        const d = IND[k];
+        const list = recs(k).slice(-30);
+        if (!list.length) return `<p class="muted">Ainda não há medições para exibir no gráfico.</p>`;
+        const W = 600, H = 210, L = 44, Rr = 14, T = 12, B = 26;
+        const series = d.dual ? [{ f: r => r.v, c: "#7fa8cc", ok: d.ok, warn: d.warn }, { f: r => r.v2, c: "#b3a4d6", ok: d.ok2, warn: d.warn2 }] : [{ f: r => r.v, c: "#7fa8cc", ok: d.ok, warn: d.warn }];
+        const vals = list.flatMap(r => series.map(s => s.f(r)));
+        let lo = Math.min(d.disp[0], ...vals), hi = Math.max(d.disp[1], ...vals);
+        const pad = (hi - lo) * 0.06; lo -= pad; hi += pad;
+        const t0 = list[0].t, t1 = list[list.length - 1].t;
+        const x = t => list.length === 1 || t1 === t0 ? (L + W - Rr) / 2 : L + (t - t0) / (t1 - t0) * (W - L - Rr);
+        const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+        const band = (r, color, op) => { const a = Math.max(r[0], lo), b = Math.min(r[1], hi); return b > a ? `<rect x="${L}" y="${y(b)}" width="${W - L - Rr}" height="${y(a) - y(b)}" fill="${color}" opacity="${op}"/>` : ""; };
+        let g = "";
+        series.forEach(s => g += band(s.warn, COLORS[1], .1) + band(s.ok, COLORS[0], .16));
+        const ticks = 4;
+        for (let i = 0; i <= ticks; i++) { const v = lo + (hi - lo) * i / ticks; g += `<line x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,.06)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${Math.round(v * 10) / 10}</text>`; }
+        g += `<text x="${L}" y="${H - 6}">${new Date(t0).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</text><text x="${W - Rr}" y="${H - 6}" text-anchor="end">${new Date(t1).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</text>`;
+        series.forEach(s => {
+          if (list.length > 1) g += `<polyline fill="none" stroke="${s.c}" stroke-width="1.6" points="${list.map(r => x(r.t) + "," + y(s.f(r))).join(" ")}"/>`;
+          g += list.map(r => {
+            const l = levelOf(k, r);
+            return `<circle cx="${x(r.t)}" cy="${y(s.f(r))}" r="3.5" fill="${COLORS[l]}" stroke="#141a23"><title>${fmtDate(r.t)}: ${fmt(k, r)}${unitOf(k, r)} (${LEVELS[l].label})</title></circle>`;
+          }).join("");
+        });
+        return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de ${d.name}">${g}</svg>
+          <div class="legend"><span><i style="background:rgba(76,175,138,.5)"></i>Faixa normal</span><span><i style="background:rgba(212,162,76,.4)"></i>Faixa de atenção</span>${d.dual ? `<span><i style="background:#7fa8cc"></i>Sistólica</span><span><i style="background:#b3a4d6"></i>Diastólica</span>` : ""}${d.sum ? `<span>Cada ponto é um registro; o estado usa a soma do dia.</span>` : ""}</div>`;
+      }
+
+      function renderDetail() {
+        const k = selInd, d = IND[k], c = current(k), l = c ? levelOf(k, c) : "n";
+        const hist = recs(k).slice(-6).reverse();
+        $("#detail").innerHTML = `<h2><span class="t">${d.name}</span><span class="pill lv-${l}"><span class="dot"></span>${c ? fmt(k, c) + (d.mood ? "" : " " + d.unit) + " · " + LEVELS[l].label : "Sem dados"}</span></h2>
+          <div class="guide lv-${l}">${c ? d.tips[l] : "Sem medições ainda. Siga as instruções abaixo e registre o primeiro valor."}</div>
+          <form class="log" id="log" novalidate>${formHtml(k)}<button class="primary" type="submit">Registrar</button></form>
+          <div class="err" id="err" role="alert"></div>
+          ${chartSvg(k)}
+          <div class="info">
+            <div><h3>Como medir</h3><p>${d.how}</p></div>
+            <div><h3>Por que importa no espaço</h3><p>${d.why}</p></div>
+          </div>
+          ${hist.length ? `<h3>Últimos registros</h3><table><thead><tr><th>Data</th><th>Valor</th><th>Estado</th><th></th></tr></thead><tbody>${hist.map(r => `<tr><td>${fmtDate(r.t)}</td><td>${fmt(k, r)}${unitOf(k, r)}</td><td class="lv-${levelOf(k, r)}">${LEVELS[levelOf(k, r)].label}</td><td><button type="button" class="small" data-del="${r.id}" aria-label="Excluir registro">Excluir</button></td></tr>`).join("")}</tbody></table>` : ""}`;
+      }
+
+      function submitLog(e) {
+        e.preventDefault();
+        const k = selInd, d = IND[k], f = e.target, err = $("#err");
+        const num = n => { const el = f.elements[n]; return el && el.value !== "" ? Number(el.value) : NaN; };
+        let v, v2;
+        if (d.mood) { const ch = f.querySelector("input[name=mood]:checked"); v = ch ? Number(ch.value) : NaN; }
+        else v = num("v");
+        if (d.dual) v2 = num("v2");
+        const bad = x => !isFinite(x) || x < d.min || x > d.max;
+        if (bad(v) || (d.dual && bad(v2))) { err.textContent = d.mood ? "Selecione uma nota de 1 a 5." : `Informe um valor entre ${d.min} e ${d.max}.`; return; }
+        if (d.dual && v2 >= v) { err.textContent = "A pressão sistólica deve ser maior que a diastólica."; return; }
+        const rec = { id: Date.now() + Math.random().toString(36).slice(2, 6), t: Date.now(), k, v };
+        if (d.dual) rec.v2 = v2;
+        state.records.push(rec);
+        save();
+        render();
+      }
+
+      function seeded(seed) { return () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296; }
+      function demo() {
+        const rnd = seeded(42);
+        const n = (c, s) => c + (rnd() - .5) * 2 * s;
+        const recsNew = [];
+        let id = 0;
+        const add = (t, k, v, v2) => { const r = { id: "demo" + id++, t, k, v }; if (v2 != null) r.v2 = v2; recsNew.push(r); };
+        for (let i = 13; i >= 0; i--) {
+          const base = new Date(); base.setHours(8, 0, 0, 0); base.setDate(base.getDate() - i);
+          const t = base.getTime();
+          const drift = (13 - i) / 13;
+          add(t, "fc", Math.round(n(68 + drift * 22, 5)));
+          add(t + 6e4, "bp", Math.round(n(115 + drift * 18, 5)), Math.round(n(74 + drift * 10, 4)));
+          add(t + 12e4, "spo2", Math.round(n(98 - drift * 3, 1)));
+          add(t + 18e4, "temp", Math.round(n(36.6 + drift * .4, .3) * 10) / 10);
+          add(t + 24e4, "glicose", Math.round(n(95 + drift * 30, 12)));
+          add(t + 3e5, "sono", Math.round(n(7.5 - drift * 1.8, .7) * 2) / 2);
+          add(t + 36e4, "humor", Math.max(1, Math.min(5, Math.round(n(4.4 - drift * 1.4, .7)))));
+          add(t + 9 * 36e5, "exercicio", Math.round(n(75 - drift * 35, 12) / 5) * 5);
+        }
+        state.records = state.records.filter(r => !String(r.id).startsWith("demo")).concat(recsNew);
+        save();
+        render();
+      }
+
+      document.addEventListener("click", e => {
+        const reg = e.target.closest("[data-region]");
+        if (reg) { selRegion = reg.dataset.region; if (!REGIONS[selRegion].inds.includes(selInd)) selInd = REGIONS[selRegion].inds[0]; render(); return; }
+        const ind = e.target.closest("[data-ind]");
+        if (ind) {
+          selInd = ind.dataset.ind;
+          if (!REGIONS[selRegion].inds.includes(selInd)) selRegion = Object.keys(REGIONS).find(r => REGIONS[r].inds.includes(selInd));
+          render();
+          $("#detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return;
+        }
+        const del = e.target.closest("[data-del]");
+        if (del) { state.records = state.records.filter(r => r.id !== del.dataset.del); save(); render(); }
+      });
+      document.addEventListener("keydown", e => {
+        const reg = e.target.closest && e.target.closest("[data-region]");
+        if (reg && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); reg.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
+      });
+      document.addEventListener("submit", e => { if (e.target.id === "log") submitLog(e); });
+      $("#env").addEventListener("change", e => { state.env = e.target.value; save(); render(); });
+      $("#demo").addEventListener("click", demo);
+      $("#clear").addEventListener("click", () => { if (confirm("Apagar todos os registros deste navegador?")) { state.records = []; save(); render(); } });
+      $("#export").addEventListener("click", () => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }));
+        a.download = "saude-astronauta.json";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      render();
+    </script>
+  </body>
+</html>
